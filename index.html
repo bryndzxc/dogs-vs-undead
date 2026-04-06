@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dogs vs Undead</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #0a0a1a;
+    }
+    body {
+      min-height: 100%;
+      overscroll-behavior: none;
+      touch-action: none;
+    }
+    #game-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      overflow: hidden;
+      padding: max(0px, env(safe-area-inset-top))
+               max(0px, env(safe-area-inset-right))
+               max(0px, env(safe-area-inset-bottom))
+               max(0px, env(safe-area-inset-left));
+    }
+    #game-container canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100dvh;
+      margin: auto;
+      box-shadow: 0 0 40px rgba(80,100,255,0.35);
+    }
+    .dvz-hidden {
+      display: none !important;
+    }
+    /* ── Compact account chip ── */
+    #dvz-account-chip {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 1200;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(142, 187, 216, 0.4);
+      background: rgba(8, 18, 34, 0.88);
+      color: #eef7ff;
+      font: 700 12px/1 Arial, sans-serif;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.28);
+      transition: background 0.12s ease;
+    }
+    #dvz-account-chip:hover { background: rgba(22, 44, 74, 0.95); }
+    #dvz-chip-dot { font-size: 8px; }
+    #dvz-chip-dot.is-online { color: #44dd88; }
+    #dvz-chip-dot.is-guest  { color: #8899aa; }
+    #dvz-chip-arrow { font-size: 9px; color: #7899bb; margin-left: 2px; }
+
+    /* ── Account dropdown menu ── */
+    #dvz-account-menu {
+      position: fixed;
+      top: 46px;
+      right: 12px;
+      z-index: 1300;
+      min-width: 210px;
+      border-radius: 14px;
+      border: 1px solid rgba(142, 187, 216, 0.25);
+      background: rgba(8, 18, 34, 0.97);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    #dvz-menu-status {
+      padding: 10px 14px 8px;
+      font: 12px/1.4 Arial, sans-serif;
+      color: #8aaec8;
+      border-bottom: 1px solid rgba(142,187,216,0.12);
+    }
+    .dvz-menu-item {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: none;
+      color: #ddeeff;
+      font: 700 12px/1.2 Arial, sans-serif;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .dvz-menu-item:hover { background: rgba(255,255,255,0.06); }
+    .dvz-menu-item--danger { color: #ff9ca2; }
+    .dvz-menu-sep {
+      height: 1px;
+      background: rgba(142,187,216,0.12);
+      margin: 0;
+    }
+
+    .dvz-modal button,
+    .dvz-modal input {
+      font-family: Arial, sans-serif;
+    }
+    #dvz-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1400;
+      background: rgba(0, 0, 0, 0.72);
+    }
+    .dvz-modal {
+      position: fixed;
+      z-index: 1500;
+      top: 50%;
+      left: 50%;
+      width: min(460px, calc(100vw - 28px));
+      max-height: min(86vh, 720px);
+      overflow: auto;
+      transform: translate(-50%, -50%);
+      border-radius: 18px;
+      border: 1px solid rgba(142, 187, 216, 0.35);
+      background: #0e1b2f;
+      color: #f1f7ff;
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+    }
+    .dvz-modal--wide {
+      width: min(720px, calc(100vw - 28px));
+    }
+    .dvz-modal-header,
+    .dvz-modal-body,
+    .dvz-modal-footer {
+      padding: 18px 20px;
+    }
+    .dvz-modal-header {
+      border-bottom: 1px solid rgba(142, 187, 216, 0.18);
+    }
+    .dvz-modal-title {
+      font: 700 24px/1.2 Arial Black, Arial, sans-serif;
+      color: #ffe28a;
+      margin-bottom: 6px;
+    }
+    .dvz-modal-subtitle {
+      font: 13px/1.4 Arial, sans-serif;
+      color: #bdd2e4;
+    }
+    .dvz-auth-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .dvz-auth-tab {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(90, 150, 200, 0.35);
+      background: #15263d;
+      color: #bcd4e8;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .dvz-auth-tab.is-active {
+      background: #24486a;
+      color: #ffffff;
+      border-color: rgba(255, 215, 112, 0.45);
+    }
+    .dvz-field {
+      margin-bottom: 12px;
+    }
+    .dvz-field label {
+      display: block;
+      margin-bottom: 6px;
+      font: 700 12px/1.2 Arial, sans-serif;
+      color: #d4e7f8;
+    }
+    .dvz-field input {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(142, 187, 216, 0.28);
+      background: #0a1424;
+      color: #ffffff;
+      font-size: 14px;
+    }
+    .dvz-field input:focus {
+      outline: 2px solid rgba(255, 215, 112, 0.55);
+      outline-offset: 1px;
+    }
+    #dvz-auth-error,
+    #dvz-leaderboard-message {
+      min-height: 22px;
+      font: 12px/1.35 Arial, sans-serif;
+      color: #ff9ca2;
+      margin-top: 6px;
+    }
+    .dvz-modal-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      border-top: 1px solid rgba(142, 187, 216, 0.18);
+    }
+    .dvz-modal-btn {
+      appearance: none;
+      border: 1px solid rgba(255, 215, 112, 0.35);
+      border-radius: 10px;
+      background: #24486a;
+      color: #ffffff;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .dvz-modal-btn--secondary {
+      background: #16283a;
+      border-color: rgba(142, 187, 216, 0.28);
+    }
+    .dvz-modal-btn--danger {
+      background: #582830;
+      border-color: rgba(255, 130, 130, 0.45);
+    }
+    .dvz-modal-btn:disabled {
+      opacity: 0.65;
+      cursor: default;
+    }
+    .dvz-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #0a1424;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .dvz-table th,
+    .dvz-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(142, 187, 216, 0.12);
+      font: 13px/1.35 Arial, sans-serif;
+      color: #dceaf7;
+    }
+    .dvz-table th {
+      font-weight: 700;
+      color: #ffe28a;
+      background: rgba(36, 72, 106, 0.4);
+    }
+    .dvz-table tr.is-current-user td {
+      background: rgba(68, 221, 136, 0.12);
+    }
+    #dvz-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 1600;
+      transform: translateX(-50%);
+      max-width: min(520px, calc(100vw - 28px));
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: rgba(10, 20, 36, 0.94);
+      border: 1px solid rgba(142, 187, 216, 0.32);
+      color: #f2f7ff;
+      font: 13px/1.4 Arial, sans-serif;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+    }
+    @media (max-width: 768px) {
+      #dvz-account-chip { top: 8px; right: 8px; }
+      #dvz-account-menu { top: 44px; right: 8px; }
+      #game-container canvas {
+        max-width: 100vw;
+        max-height: 100dvh;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container"></div>
+  <!-- Compact account chip — always visible in top-right -->
+  <button id="dvz-account-chip" type="button" aria-label="Account menu">
+    <span id="dvz-chip-dot" class="is-guest">●</span>
+    <span id="dvz-chip-name">Guest</span>
+    <span id="dvz-chip-arrow">▾</span>
+  </button>
+
+  <!-- Account dropdown — shown on chip click -->
+  <div id="dvz-account-menu" class="dvz-hidden" role="menu">
+    <div id="dvz-menu-status">Local save only. Login is optional.</div>
+    <button id="dvz-leaderboard-open" class="dvz-menu-item" type="button">🏆 Leaderboard</button>
+    <div class="dvz-menu-sep"></div>
+    <button id="dvz-login-open" class="dvz-menu-item" type="button">Login</button>
+    <button id="dvz-register-open" class="dvz-menu-item" type="button">Register</button>
+    <button id="dvz-logout-open" class="dvz-menu-item dvz-menu-item--danger dvz-hidden" type="button">Logout</button>
+  </div>
+  <div id="dvz-modal-backdrop" class="dvz-hidden"></div>
+
+  <div id="dvz-auth-modal" class="dvz-modal dvz-hidden" role="dialog" aria-modal="true" aria-labelledby="dvz-auth-title">
+    <div class="dvz-modal-header">
+      <div id="dvz-auth-title" class="dvz-modal-title">Account</div>
+      <div class="dvz-modal-subtitle">Guest play stays available. Sign in only if you want leaderboard and cloud save.</div>
+    </div>
+    <div class="dvz-modal-body">
+      <div class="dvz-auth-tabs">
+        <button id="dvz-auth-tab-login" class="dvz-auth-tab is-active" type="button">Login</button>
+        <button id="dvz-auth-tab-register" class="dvz-auth-tab" type="button">Register</button>
+      </div>
+      <form id="dvz-auth-form">
+        <div class="dvz-field">
+          <label for="dvz-auth-username">Username</label>
+          <input id="dvz-auth-username" name="username" autocomplete="username" maxlength="32" required>
+        </div>
+        <div class="dvz-field">
+          <label for="dvz-auth-password">Password</label>
+          <input id="dvz-auth-password" name="password" type="password" autocomplete="current-password" minlength="6" required>
+        </div>
+        <div id="dvz-auth-confirm-field" class="dvz-field dvz-hidden">
+          <label for="dvz-auth-password-confirmation">Confirm Password</label>
+          <input id="dvz-auth-password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" minlength="6">
+        </div>
+        <div id="dvz-auth-error"></div>
+      </form>
+    </div>
+    <div class="dvz-modal-footer">
+      <button id="dvz-auth-guest" class="dvz-modal-btn dvz-modal-btn--secondary" type="button">Play as Guest</button>
+      <button id="dvz-auth-close" class="dvz-modal-btn dvz-modal-btn--secondary" type="button">Close</button>
+      <button id="dvz-auth-submit" class="dvz-modal-btn" type="button">Login</button>
+    </div>
+  </div>
+
+  <div id="dvz-leaderboard-modal" class="dvz-modal dvz-modal--wide dvz-hidden" role="dialog" aria-modal="true" aria-labelledby="dvz-leaderboard-title">
+    <div class="dvz-modal-header">
+      <div id="dvz-leaderboard-title" class="dvz-modal-title">Leaderboard</div>
+      <div class="dvz-modal-subtitle">Top players are sorted by highest level, total stars, then score. Guests can view; only signed-in players can submit.</div>
+    </div>
+    <div class="dvz-modal-body">
+      <div id="dvz-leaderboard-message"></div>
+      <table class="dvz-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Username</th>
+            <th>Highest Level</th>
+            <th>Stars</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="dvz-leaderboard-body"></tbody>
+      </table>
+    </div>
+    <div class="dvz-modal-footer">
+      <button id="dvz-leaderboard-refresh" class="dvz-modal-btn dvz-modal-btn--secondary" type="button">Refresh</button>
+      <button id="dvz-leaderboard-close" class="dvz-modal-btn" type="button">Close</button>
+    </div>
+  </div>
+
+  <div id="dvz-toast" class="dvz-hidden" aria-live="polite"></div>
+
+  <!-- Phaser 3 via CDN — no local install required -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+
+  <!-- Load order: SFX → Config → LevelData → ChapterData → HomeData → MissionData → CollectibleData → API/Cloud/Auth/UI/Tutorial → Progression → DrawUtils → Entities → Scenes → Main -->
+  <script src="js/SFX.js"></script>
+  <script src="js/Config.js"></script>
+  <script src="js/LevelData.js"></script>
+  <script src="js/ChapterData.js"></script>
+  <script src="js/HomeData.js"></script>
+  <script src="js/MissionData.js"></script>
+  <script src="js/CollectibleData.js"></script>
+  <script src="js/ApiClient.js"></script>
+  <script src="js/CloudService.js"></script>
+  <script src="js/AuthService.js"></script>
+  <script src="js/OverlayUI.js"></script>
+  <script src="js/TutorialUI.js"></script>
+  <script src="js/Progression.js"></script>
+  <script src="js/DrawUtils.js"></script>
+  <script src="js/entities/Dog.js"></script>
+  <script src="js/entities/Enemy.js"></script>
+  <script src="js/entities/Projectile.js"></script>
+  <script src="js/scenes/BootScene.js"></script>
+  <script src="js/scenes/MenuScene.js"></script>
+  <script src="js/scenes/OyongHomeScene.js"></script>
+  <script src="js/scenes/LevelSelectScene.js"></script>
+  <script src="js/scenes/LoadoutScene.js"></script>
+  <script src="js/scenes/GameScene.js"></script>
+  <script src="js/scenes/UIScene.js"></script>
+  <script src="js/scenes/LevelCompleteScene.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
