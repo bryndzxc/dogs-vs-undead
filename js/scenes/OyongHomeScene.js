@@ -37,8 +37,20 @@ class OyongHomeScene extends Phaser.Scene {
     this._buildHomeButtons();
     this._buildInfoPanel();
     this.input.on('wheel', this._onWheel, this);
+
+    // ── Touch / pointer drag-scroll for mobile ─────────────────
+    this._dragStartY   = null;  // Y position where drag began
+    this._dragScrollY  = 0;     // panelScrollY snapshot at drag start
+    this._isDragging   = false; // true once drag threshold exceeded
+    this.input.on('pointerdown', this._onDragStart, this);
+    this.input.on('pointermove', this._onDragMove,  this);
+    this.input.on('pointerup',   this._onDragEnd,   this);
+
     this.events.once('shutdown', () => {
-      this.input.off('wheel', this._onWheel, this);
+      this.input.off('wheel',       this._onWheel,   this);
+      this.input.off('pointerdown', this._onDragStart, this);
+      this.input.off('pointermove', this._onDragMove,  this);
+      this.input.off('pointerup',   this._onDragEnd,   this);
     });
     this._refreshHud();
     this._setPanel('home');
@@ -315,18 +327,31 @@ class OyongHomeScene extends Phaser.Scene {
     this.actionRailG.lineBetween(railX + 12, railY + 36, railX + railW - 12, railY + 36);
     this.actionRailG.lineBetween(railX + 12, railY + 64, railX + railW - 12, railY + 64);
 
-    const playH = 32;
+    const playH  = 32;
     const careGap = 8;
     const careW = Math.floor((railW - careGap * 2) / 3);
     const careH = 22;
     const playY = railY + 18;
     const careY = railY + 52;
-    const navY = railY + 72;
+    const navY  = railY + 72;
 
-    this._makeActionButton('play', railX + railW / 2, playY, railW - 8, playH, 'Play', 0x2d6b3e, 0x43a860, () => {
+    // Two main action buttons side by side: Levels and Wave Challenge
+    const halfW  = Math.floor((railW - careGap - 8) / 2);
+    const leftX  = railX + 4 + halfW / 2;
+    const rightX = railX + 4 + halfW + careGap + halfW / 2;
+
+    const waveBest = Progression.getWaveBest(this.saveData);
+    const challengeLabel = waveBest > 0 ? `\u26A1 Wave ${waveBest}` : '\u26A1 Challenge';
+
+    this._makeActionButton('play', leftX, playY, halfW, playH, 'Levels', 0x2d6b3e, 0x43a860, () => {
       this.scene.start('LevelSelectScene');
     });
-    this.actionButtons.play.txt.setFontSize('16px');
+    this.actionButtons.play.txt.setFontSize('14px');
+
+    this._makeActionButton('challenge', rightX, playY, halfW, playH, challengeLabel, 0x3a1a5a, 0x6a3aaa, () => {
+      this.scene.start('LoadoutScene', { challengeMode: true });
+    });
+    this.actionButtons.challenge.txt.setFontSize('11px');
 
     this._makeActionButton('feed', railX + careW / 2, careY, careW, careH, 'Feed', 0x7a4e28, 0xa06030, () => {
       this._performCareAction('feed');
@@ -573,6 +598,33 @@ class OyongHomeScene extends Phaser.Scene {
 
     this.panelScrollY = Phaser.Math.Clamp(this.panelScrollY + dy * 0.7, 0, this.panelScrollMax);
     this.panelContent.y = -this.panelScrollY;
+  }
+
+  // ── Touch drag-scroll handlers ─────────────────────────────────
+  _onDragStart(pointer) {
+    if (this.panelScrollMax <= 0) return;
+    const viewport = this._getPanelViewport();
+    const inside = pointer.x >= viewport.x && pointer.x <= viewport.x + viewport.w
+      && pointer.y >= viewport.y && pointer.y <= viewport.y + viewport.h;
+    if (!inside) return;
+
+    this._dragStartY  = pointer.y;
+    this._dragScrollY = this.panelScrollY;
+    this._isDragging  = false;
+  }
+
+  _onDragMove(pointer) {
+    if (this._dragStartY === null || !pointer.isDown) return;
+    const dy = this._dragStartY - pointer.y;       // positive = scrolling down
+    if (!this._isDragging && Math.abs(dy) < 5) return; // dead-zone: ignore micro-moves
+    this._isDragging = true;
+    this.panelScrollY = Phaser.Math.Clamp(this._dragScrollY + dy, 0, this.panelScrollMax);
+    this.panelContent.y = -this.panelScrollY;
+  }
+
+  _onDragEnd() {
+    this._dragStartY = null;
+    this._isDragging = false;
   }
 
   _drawRoomDynamic() {
@@ -940,8 +992,12 @@ class OyongHomeScene extends Phaser.Scene {
     ).setOrigin(0, 0.5).setDepth(16));
 
     const dogStripY = viewport.y + 34;
-    const dogStripH = 90;
     const chipH = 52;
+    const chipRowGap = 8;
+    // Show every unlocked dog — calculate grid dimensions from actual count.
+    const dogCols = Math.min(4, Math.max(1, dogs.length));
+    const dogRows = Math.ceil(dogs.length / dogCols);
+    const dogStripH = 26 + dogRows * chipH + (dogRows - 1) * chipRowGap + 12;
     const dogStripG = this._addPanelContent(this.add.graphics().setDepth(15));
     dogStripG.fillStyle(0x14202f, 1);
     dogStripG.fillRoundedRect(viewport.x + 2, dogStripY, viewport.w - 4, dogStripH, 14);
@@ -951,11 +1007,13 @@ class OyongHomeScene extends Phaser.Scene {
       fontSize: '12px', fontFamily: 'Arial Black', color: '#c8dff2',
     }).setDepth(16));
     const chipGap = 10;
-    const chipW = Math.floor((viewport.w - 32 - chipGap * 2) / 3);
-    dogs.slice(0, 3).forEach((type, idx) => {
+    const chipW = Math.floor((viewport.w - 32 - chipGap * (dogCols - 1)) / dogCols);
+    dogs.forEach((type, idx) => {
       const def = DOG_DEFS[type];
-      const x = viewport.x + 16 + idx * (chipW + chipGap);
-      const y = dogStripY + 28;
+      const chipCol = idx % dogCols;
+      const chipRow = Math.floor(idx / dogCols);
+      const x = viewport.x + 16 + chipCol * (chipW + chipGap);
+      const y = dogStripY + 28 + chipRow * (chipH + chipRowGap);
       const chip = this._addPanelContent(this.add.graphics().setDepth(16));
       chip.fillStyle(0x1b2e44, 1);
       chip.fillRoundedRect(x, y, chipW, chipH, 12);
@@ -1245,9 +1303,12 @@ class OyongHomeScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(17);
 
     if (onClick) {
-      // Full-area hit zone — entire mini button background is clickable, not just the label text.
-      const zone = this.add.zone(x - w / 2, y - h / 2, w, h).setOrigin(0, 0).setDepth(18)
-        .setInteractive({ useHandCursor: true });
+      // Full-area hit zone — tracked via _addPanelContent so it is destroyed on _clearPanel(),
+      // preventing stale zones from firing old callbacks after each equip/unequip re-render.
+      const zone = this._addPanelContent(
+        this.add.zone(x - w / 2, y - h / 2, w, h).setOrigin(0, 0).setDepth(18)
+          .setInteractive({ useHandCursor: true })
+      );
       zone.on('pointerover', () => txt.setScale(1.04));
       zone.on('pointerout', () => txt.setScale(1));
       zone.on('pointerdown', () => { SFX.click(); onClick(); });

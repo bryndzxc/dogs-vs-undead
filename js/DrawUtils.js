@@ -1294,10 +1294,21 @@ function drawExploder(g, cx, cy, flash, anim) {
  * Recognizable by: massive bulk, glowing red eyes, crown of bone spikes,
  * intimidating scale. Rages at 50% HP — turns bright orange.
  */
-function drawBoss(g, cx, cy, flash, anim, raging) {
+// Chapter-specific color palettes for boss identity
+const BOSS_CHAPTER_COLORS = {
+  1: { body: 0x8a0010, skin: 0xaa1828, accent: 0xff6644 }, // Ch1 — crimson brute
+  2: { body: 0x7a1a00, skin: 0xcc4422, accent: 0xff8844 }, // Ch2 — orange runner
+  3: { body: 0x1a2a6a, skin: 0x3a4a9a, accent: 0x88ccff }, // Ch3 — blue shield
+  4: { body: 0x5a3a00, skin: 0x8a5a10, accent: 0xffbb55 }, // Ch4 — amber summoner
+  5: { body: 0x6a1a00, skin: 0xaa3300, accent: 0xff6600 }, // Ch5 — ember tyrant
+  6: { body: 0x2a0a4a, skin: 0x5a1a8a, accent: 0xcc66ff }, // Ch6 — void king
+};
+
+function drawBoss(g, cx, cy, flash, anim, raging, chapter) {
   const SE    = 1.35; // noticeably larger than brute
-  const body  = flash ? 0xffbbbb : (raging ? 0xdd4400 : 0x8a0010);
-  const skin  = flash ? 0xffddcc : (raging ? 0xee6622 : 0xaa1828);
+  const pal   = BOSS_CHAPTER_COLORS[chapter] || BOSS_CHAPTER_COLORS[1];
+  const body  = flash ? 0xffbbbb : (raging ? 0xdd4400 : pal.body);
+  const skin  = flash ? 0xffddcc : (raging ? 0xee6622 : pal.skin);
   const dark  = 0x0a0000;
   const bob   = Math.sin(anim * Math.PI * 1.5) * 2 * SE;
   const rage  = raging ? 1 : 0;
@@ -1336,8 +1347,8 @@ function drawBoss(g, cx, cy, flash, anim, raging) {
   g.fillStyle(skin, 1);
   g.fillCircle(cx, cy - 28*SE + bob, 24*SE);
 
-  // Crown of bone spikes (6 spikes — regal menace)
-  g.fillStyle(raging ? 0xffaa44 : 0xddddaa, 1);
+  // Crown of bone spikes (6 spikes — regal menace; tinted by chapter accent)
+  g.fillStyle(raging ? 0xffaa44 : (pal.accent || 0xddddaa), 1);
   const spikeCount = 6;
   for (let i = 0; i < spikeCount; i++) {
     const sx = cx - 20*SE + i * 8*SE;
@@ -1395,7 +1406,7 @@ function drawEnemyByType(g, cx, cy, type, flash, anim, extra) {
     case 'shielder': drawShielder(g, cx, cy, flash, anim, false);                     break;
     case 'jumper':   drawJumper(g,   cx, cy, flash, anim, extra && extra.jumping);    break;
     case 'exploder': drawExploder(g, cx, cy, flash, anim);                            break;
-    case 'boss':     drawBoss(g,     cx, cy, flash, anim, extra && extra.raging);     break;
+    case 'boss':     drawBoss(g,     cx, cy, flash, anim, extra && extra.raging, extra && extra.chapter); break;
   }
 }
 
@@ -1503,47 +1514,83 @@ function drawEvolutionEffects(g, cx, cy, level, type, animTime) {
   }[type] || 0xffffff;
 
   // Aura is centered slightly above body center (dog head area).
-  // acy offset scales with the dog (head center is at cy - 16*1.20 = cy - 19).
   const acy = cy - 10;
 
   if (level === 2) {
-    // Soft outer ring with gentle pulse — radius scaled for 20%-larger dog
-    const pulse = (Math.sin(animTime / 600) + 1) / 2;
-    g.lineStyle(2, auraColor, 0.22 + pulse * 0.18);
-    g.strokeCircle(cx, acy, 43);
-    g.fillStyle(auraColor, 0.03 + pulse * 0.04);
-    g.fillCircle(cx, acy, 43);
+    // Dual pulsing rings + floating energy diamonds
+    const pulse  = (Math.sin(animTime / 600) + 1) / 2;
+    const pulse2 = (Math.sin(animTime / 400 + 1.2) + 1) / 2;
+
+    // Outer ring
+    g.lineStyle(2, auraColor, 0.28 + pulse * 0.22);
+    g.strokeCircle(cx, acy, 46);
+    // Inner ring (offset phase)
+    g.lineStyle(1.5, auraColor, 0.14 + pulse2 * 0.14);
+    g.strokeCircle(cx, acy, 36);
+    // Soft fill
+    g.fillStyle(auraColor, 0.04 + pulse * 0.05);
+    g.fillCircle(cx, acy, 46);
+
+    // 4 floating energy diamonds at ring edge
+    const dT = animTime / 1400;
+    for (let i = 0; i < 4; i++) {
+      const angle = dT + (i / 4) * Math.PI * 2;
+      const dx = cx  + Math.cos(angle) * 46;
+      const dy = acy + Math.sin(angle) * 36;
+      const da = 0.5 + pulse * 0.4;
+      g.fillStyle(auraColor, da);
+      // Diamond shape (4 triangles)
+      g.fillTriangle(dx, dy - 4, dx - 3, dy, dx, dy + 4);
+      g.fillTriangle(dx, dy - 4, dx + 3, dy, dx, dy + 4);
+    }
   }
 
   if (level === 3) {
-    // 6 orbital particles — orbit radius scaled for larger dog silhouette
-    const t = animTime / 900;
-    for (let i = 0; i < 6; i++) {
-      const angle = t + (i / 6) * Math.PI * 2;
-      // Elliptical orbit (wider horizontally than vertically)
-      const ox = cx + Math.cos(angle) * 50;
-      const oy = acy + Math.sin(angle) * 36;
-      g.fillStyle(auraColor, 0.80);
-      g.fillCircle(ox, oy, 3.2);
-      // Faint trailing dot
-      const trailAngle = angle - 0.45;
-      g.fillStyle(auraColor, 0.30);
-      g.fillCircle(
-        cx  + Math.cos(trailAngle) * 50,
-        acy + Math.sin(trailAngle) * 36,
-        1.8
-      );
+    // ── MAX LEVEL: crown spikes + 8 orbital particles + pulsing core ──
+    const pulse  = (Math.sin(animTime / 220) + 1) / 2;
+    const pulse2 = (Math.sin(animTime / 350 + 0.8) + 1) / 2;
+
+    // Bright inner core glow (type color)
+    g.fillStyle(auraColor, 0.10 + pulse2 * 0.09);
+    g.fillCircle(cx, acy, 32);
+
+    // 8 orbital particles with trails (elliptical orbit)
+    const t = animTime / 750;
+    for (let i = 0; i < 8; i++) {
+      const angle = t + (i / 8) * Math.PI * 2;
+      const ox = cx  + Math.cos(angle) * 52;
+      const oy = acy + Math.sin(angle) * 38;
+      g.fillStyle(auraColor, 0.90);
+      g.fillCircle(ox, oy, 3.0);
+      // Trail (two fading dots)
+      const ta1 = angle - 0.30;
+      const ta2 = angle - 0.60;
+      g.fillStyle(auraColor, 0.45);
+      g.fillCircle(cx + Math.cos(ta1) * 52, acy + Math.sin(ta1) * 38, 2.0);
+      g.fillStyle(auraColor, 0.18);
+      g.fillCircle(cx + Math.cos(ta2) * 52, acy + Math.sin(ta2) * 38, 1.3);
     }
 
-    // Pulsing strong ring — scaled radius
-    const pulse = (Math.sin(animTime / 220) + 1) / 2;
-    g.lineStyle(3, auraColor, 0.42 + pulse * 0.38);
-    g.strokeCircle(cx, acy, 43);
-    // Outer halo ring
-    g.lineStyle(1.5, auraColor, 0.12 + pulse * 0.13);
-    g.strokeCircle(cx, acy, 55);
-    // Soft inner fill
-    g.fillStyle(auraColor, 0.04 + pulse * 0.06);
-    g.fillCircle(cx, acy, 43);
+    // Pulsing main ring
+    g.lineStyle(3.5, auraColor, 0.50 + pulse * 0.38);
+    g.strokeCircle(cx, acy, 44);
+    // Outer halo
+    g.lineStyle(1.5, auraColor, 0.15 + pulse * 0.14);
+    g.strokeCircle(cx, acy, 57);
+    // Second outer halo (slow pulse, offset)
+    g.lineStyle(1, auraColor, 0.08 + pulse2 * 0.08);
+    g.strokeCircle(cx, acy, 64);
+
+    // Crown spikes: 6 upward spikes above the dog (regal max-level marker)
+    const spikeBase = acy - 44;
+    g.fillStyle(auraColor, 0.72 + pulse * 0.20);
+    for (let i = 0; i < 5; i++) {
+      const sx = cx - 16 + i * 8;
+      const tipH = (i % 2 === 0) ? 14 : 9;
+      g.fillTriangle(sx - 4, spikeBase, sx, spikeBase - tipH, sx + 4, spikeBase);
+    }
+    // Crown base bar
+    g.fillStyle(auraColor, 0.40 + pulse * 0.20);
+    g.fillRect(cx - 20, spikeBase - 2, 40, 4);
   }
 }

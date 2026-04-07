@@ -10,14 +10,21 @@ class LoadoutScene extends Phaser.Scene {
   constructor() { super({ key: 'LoadoutScene' }); }
 
   init(data) {
+    this.challengeMode = data.challengeMode || false;
     this.levelId = data.levelId || 1;
   }
 
   create() {
     AudioManager.playMusic('home');
-    this.saveData   = Progression.load();
-    this.levelDef   = LEVEL_DATA.find(l => l.id === this.levelId);
-    this.maxSlots   = this.levelDef.loadoutSlots || 3;
+    this.saveData = Progression.load();
+
+    if (this.challengeMode) {
+      this.levelDef = buildChallengeLevelData();
+      this.maxSlots = 8;
+    } else {
+      this.levelDef = LEVEL_DATA.find(l => l.id === this.levelId);
+      this.maxSlots = this.levelDef.loadoutSlots || 3;
+    }
     this.chosen     = [];       // currently selected dog type keys
     this.cardMap    = {};       // type → card object
     this._animTime  = 0;
@@ -60,8 +67,9 @@ class LoadoutScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Level badge
-    this.add.text(40, 90, `LEVEL ${this.levelDef.id}`, {
-      fontSize: '13px', fontFamily: 'Arial Black', color: '#66a2cc',
+    this.add.text(40, 90, this.challengeMode ? '⚡ WAVE CHALLENGE' : `LEVEL ${this.levelDef.id}`, {
+      fontSize: '13px', fontFamily: 'Arial Black',
+      color: this.challengeMode ? '#bb88ff' : '#66a2cc',
     });
     this.add.text(GAME_W / 2, 96, this.levelDef.name, {
       fontSize: '24px', fontFamily: 'Arial Black',
@@ -327,7 +335,10 @@ class LoadoutScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true }).setDepth(11);
     backBtn.on('pointerover',  () => backBtn.setColor('#ffd700'));
     backBtn.on('pointerout',   () => backBtn.setColor('#aaccdd'));
-    backBtn.on('pointerdown',  () => { SFX.click(); this.scene.start('LevelSelectScene'); });
+    backBtn.on('pointerdown',  () => {
+      SFX.click();
+      this.scene.start(this.challengeMode ? 'OyongHomeScene' : 'LevelSelectScene');
+    });
 
     // Start button — always interactive; _startLevel() guards the empty-loadout case
     const W = 216, H = 46;
@@ -379,9 +390,14 @@ class LoadoutScene extends Phaser.Scene {
   }
 
   _startLevel() {
-    GameState.loadoutDogs = [...this.chosen];
-    GameState.selectedDog = null;
-    this.scene.start('GameScene', { levelId: this.levelId });
+    GameState.loadoutDogs  = [...this.chosen];
+    GameState.selectedDog  = null;
+    GameState.challengeMode = this.challengeMode;
+    if (this.challengeMode) {
+      this.scene.start('GameScene', { challengeMode: true });
+    } else {
+      this.scene.start('GameScene', { levelId: this.levelId });
+    }
   }
 
   update(time, delta) {

@@ -330,8 +330,9 @@ class Enemy {
       drawEnemyByType(this.gfx, drawX, drawY, this.type, flash, anim, {
         jumping: this.jumping,
         raging:  this.raging,
-        dying: this.isDying,
+        dying:   this.isDying,
         deathT,
+        chapter: this.bossChapter || 1,
       });
     }
 

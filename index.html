@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Dogs vs Undead</title>
+  <link rel="icon" href="data:,">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -368,7 +369,7 @@
   <!-- Phaser 3 via CDN — no local install required -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 
-  <!-- Load order: SFX → Config → LevelData → ChapterData → HomeData → MissionData → CollectibleData → API/Cloud/Auth/UI/Tutorial → Progression → DrawUtils → Entities → Scenes → Main -->
+  <!-- Load order: SFX → Config → LevelData → ChapterData → HomeData → MissionData → CollectibleData → WaveChallengeData → API/Cloud/Auth/UI/Tutorial → Progression → DrawUtils → Entities → Scenes → Main -->
   <script src="js/SFX.js"></script>
   <script src="js/Config.js"></script>
   <script src="js/LevelData.js"></script>
@@ -376,6 +377,7 @@
   <script src="js/HomeData.js"></script>
   <script src="js/MissionData.js"></script>
   <script src="js/CollectibleData.js"></script>
+  <script src="js/WaveChallengeData.js"></script>
   <script src="js/ApiClient.js"></script>
   <script src="js/CloudService.js"></script>
   <script src="js/AuthService.js"></script>
@@ -394,6 +396,8 @@
   <script src="js/scenes/GameScene.js"></script>
   <script src="js/scenes/UIScene.js"></script>
   <script src="js/scenes/LevelCompleteScene.js"></script>
+  <script src="js/scenes/WaveGameOverScene.js"></script>
+  <script src="js/scenes/LeaderboardScene.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

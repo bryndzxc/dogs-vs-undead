@@ -21,6 +21,11 @@ window.game = new Phaser.Game({
     expandParent: false,
   },
 
+  // ── Disable Phaser's built-in audio system — we use raw <audio> elements via SFX.js.
+  // This prevents Phaser from creating an AudioContext at startup, which triggers
+  // "AudioContext was not allowed to start" warnings on mobile before any user gesture.
+  audio: { noAudio: true },
+
   // ── Input: ensure touch events are treated as pointer events ─────────
   input: {
     touch: {
@@ -28,5 +33,5 @@ window.game = new Phaser.Game({
     },
   },
 
-  scene: [BootScene, MenuScene, OyongHomeScene, LevelSelectScene, LoadoutScene, GameScene, UIScene, LevelCompleteScene],
+  scene: [BootScene, MenuScene, OyongHomeScene, LevelSelectScene, LoadoutScene, GameScene, UIScene, LevelCompleteScene, WaveGameOverScene, LeaderboardScene],
 });

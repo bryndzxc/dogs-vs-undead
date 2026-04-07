@@ -201,7 +201,7 @@ const LEVEL_DATA = [
     id:               5,
     name:             'Treat Economy',
     description:      'Treats are scarce this round — Treat Farmer Oyong is the answer!',
-    tip:              'Treat Farmer Oyong generates +8 treats every 6.5s. Place it in a safe back row — it pays back its cost in 2-3 waves.',
+    tip:              'Treat Farmer Oyong generates +10 treats every 5.5s and costs only 25. Place in a safe back row — pays itself back in roughly 3 payouts (~17 seconds)!',
     startTreats:      100,
     passiveIncome:    12,    // intentionally low — Treat Pup fills the gap
     passiveInterval:  5000,

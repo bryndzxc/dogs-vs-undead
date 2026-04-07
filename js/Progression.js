@@ -66,6 +66,7 @@ function _defaultSave() {
     unlockedDogs: ['bark_pup', 'guard_dog', 'treat_pup'],
     homeCurrency: 0,
     bonusTreatReserve: 0,
+    waveBest: 0,
     stats: _defaultStats(),
     missions: _defaultMissionState(),
     collection: _defaultCollection(),
@@ -117,6 +118,7 @@ const Progression = {
       unlockedDogs: [],
       homeCurrency: Math.max(0, Math.floor(_parseNumber(source?.homeCurrency, 0))),
       bonusTreatReserve: Math.max(0, Math.floor(_parseNumber(source?.bonusTreatReserve, 0))),
+      waveBest: Math.max(0, Math.floor(_parseNumber(source?.waveBest, 0))),
       stats: _defaultStats(),
       missions: _defaultMissionState(),
       collection: _defaultCollection(),
@@ -758,5 +760,26 @@ const Progression = {
     saveData.home.decorSlots[slotKey] = decorId;
     const persisted = this.save(saveData, { syncCloud: true });
     return { ok: true, saveData: persisted, decor };
+  },
+
+  // ── Wave Challenge ──────────────────────────────────────────
+
+  /** Record a completed challenge run. Awards biscuits and updates waveBest. */
+  saveChallengeResult(wavesCompleted, biscuitsEarned) {
+    const saveData = this.load();
+    const isNewBest = wavesCompleted > (saveData.waveBest || 0);
+    if (isNewBest) saveData.waveBest = wavesCompleted;
+    if (biscuitsEarned > 0) {
+      saveData.homeCurrency = (saveData.homeCurrency || 0) + biscuitsEarned;
+      saveData.stats.totalBiscuitsEarned =
+        (saveData.stats.totalBiscuitsEarned || 0) + biscuitsEarned;
+    }
+    this.save(saveData, { syncCloud: true });
+    return isNewBest;
+  },
+
+  /** Return the player's best wave count (0 if never played). */
+  getWaveBest(saveData) {
+    return Math.max(0, Math.floor(_parseNumber(saveData?.waveBest, 0)));
   },
 };

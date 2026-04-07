@@ -132,10 +132,26 @@ const AudioManager = {
     if (this._unlockListenersBound) return;
     this._unlockListenersBound = true;
     const unlock = () => {
-      this._audioUnlocked = true;
       window.removeEventListener('pointerdown', unlock, true);
       window.removeEventListener('keydown', unlock, true);
       window.removeEventListener('touchstart', unlock, true);
+      // Resume AudioContext on mobile (iOS Safari / Chrome mobile require this).
+      // Playing a silent buffer is the most reliable cross-browser unlock trick.
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const buf = ctx.createBuffer(1, 1, 22050);
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          src.start(0);
+          if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+          // Clean up after a tick so the silent play can complete
+          setTimeout(() => { try { ctx.close(); } catch (_e) {} }, 500);
+        }
+      } catch (_e) {}
+      this._audioUnlocked = true;
       if (this._pendingMusicName && !this.muted) {
         const pending = this._pendingMusicName;
         this._pendingMusicName = null;
@@ -384,3 +400,69 @@ const SFX = {
 };
 
 AudioManager._ensurePrefsLoaded();
+// Bind unlock listeners immediately so ANY first user gesture unlocks audio,
+// even if playMusic() hasn't been called yet (e.g. a SFX fires before music starts).
+AudioManager._ensureUnlockListeners();
+
+// ── Visibility / focus handler ────────────────────────────────────────────
+// When the tab is hidden, duck music to avoid orphaned audio.
+// When visible again, safely restore and retry play if needed.
+// Also auto-pauses the battle (user must manually resume from the pause overlay).
+(function _bindVisibility() {
+  document.addEventListener('visibilitychange', function _onVisibilityChange() {
+    if (document.hidden) {
+      // Tab hidden: duck music to 0 without stopping (preserves playback position)
+      if (AudioManager._currentMusicEl && !AudioManager._currentMusicEl.paused) {
+        AudioManager._currentMusicEl.volume = 0;
+      }
+      // Auto-pause the battle if one is active, or freeze timers during idle
+      try {
+        const gameScenes = window.game && window.game.scene;
+        if (gameScenes) {
+          const gs = gameScenes.getScene('GameScene');
+          if (gs && gs.wavePhase !== 'won' && gs.wavePhase !== 'lost') {
+            if (gs.wavePhase === 'idle') {
+              // Not in combat — just freeze Phaser timers to prevent passive-income drift
+              if (!gs.isBattlePaused && !gs.time.paused) {
+                gs.time.paused = true;
+                gs._autoIdlePaused = true;
+              }
+            } else if (gs.pauseBattle) {
+              // In combat — full battle pause + show overlay
+              gs._autoVisibilityPaused = gs.pauseBattle();
+              const ui = gameScenes.getScene('UIScene');
+              if (gs._autoVisibilityPaused && ui && ui._showPauseOverlay) {
+                ui._showPauseOverlay();
+              }
+            }
+          }
+        }
+      } catch (_e) {}
+    } else {
+      // Tab visible again: unfreeze idle timers if we froze them
+      try {
+        const gameScenes = window.game && window.game.scene;
+        if (gameScenes) {
+          const gs = gameScenes.getScene('GameScene');
+          if (gs && gs._autoIdlePaused) {
+            gs._autoIdlePaused = false;
+            gs.time.paused = false;
+          }
+        }
+      } catch (_e) {}
+      // Restore music volume and retry play if it was interrupted
+      if (!AudioManager.muted && AudioManager.currentTrackName) {
+        const el = AudioManager._currentMusicEl;
+        if (el) {
+          // Try to resume playback — browser may have paused it while hidden
+          if (el.paused) {
+            el.play().catch(() => {
+              AudioManager._pendingMusicName = AudioManager.currentTrackName;
+            });
+          }
+          AudioManager._setAudioVolume(el, AudioManager.musicVolume);
+        }
+      }
+    }
+  });
+}());

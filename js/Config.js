@@ -43,6 +43,7 @@ const GameState = {
   lastBondGain: 0,
   lastCollectibleDrop: null,
   lastRewardDropInfo: null,
+  challengeMode: false, // true when playing Wave Challenge (set by LoadoutScene)
 };
 
 const DOG_ORDER = [
@@ -197,19 +198,19 @@ const DOG_DEFS = {
 
   treat_pup: {
     name:    'Treat Farmer Oyong',
-    cost:    105,
-    hp:      85,
-    attack:  6,
+    cost:    25,          // early economy unit — same tier as Bark Pup
+    hp:      90,
+    attack:  6,           // minimal combat — keep in back row
     attackRate: 2500,
     range:   4,
     projSpeed: 250,
     freeze:  0,
     color:   0xf9e090,
-    role:    'Treat Generator',
-    desc:    'Generates treats over time. Place in back row.',
-    flavor:  'Works the fields and tosses backup treats.',
-    treatAmount: 8,
-    treatRate:   6500,
+    role:    'Economy · Treat Generator',
+    desc:    'Generates +10 treats every 5.5s. Place in back row.',
+    flavor:  'Works the fields so your fighters can fight.',
+    treatAmount: 10,
+    treatRate:   5500,
   },
 
   sniper_oyong: {
@@ -461,7 +462,7 @@ const UPGRADE_COSTS = {
   fire_oyong: [65, 130],
   chain_oyong: [70, 140],
   guardian_oyong: [75, 150],
-  treat_pup: [80, 160],
+  treat_pup: [30,  60],
 };
 
 // Multipliers applied to base DOG_DEFS values when a dog reaches that level.

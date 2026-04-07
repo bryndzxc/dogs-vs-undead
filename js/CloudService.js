@@ -88,6 +88,7 @@ const CloudService = {
       metadata: {
         collection_count: (saveData?.collection?.owned || []).length,
         bond_level: Math.max(1, Math.floor(Number(saveData?.home?.bondLevel) || 1)),
+        wave_best: Math.max(0, Math.floor(Number(saveData?.waveBest) || 0)),
       },
     };
   },

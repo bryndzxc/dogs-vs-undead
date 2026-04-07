@@ -26,11 +26,14 @@ class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'GameScene' }); }
 
   init(data) {
+    this.challengeMode = !!(data && data.challengeMode);
     this.levelId = (data && data.levelId) ? data.levelId : 1;
   }
 
   create() {
-    this.levelData = LEVEL_DATA.find(l => l.id === this.levelId) || LEVEL_DATA[0];
+    this.levelData = this.challengeMode
+      ? buildChallengeLevelData()
+      : (LEVEL_DATA.find(l => l.id === this.levelId) || LEVEL_DATA[0]);
     this.chapterData = getChapterForLevel(this.levelId);
     this.layoutConfig = getChapterLayout(this.levelId);
     this.maxPlaceCols = this.layoutConfig.maxPlaceCols;
@@ -81,6 +84,10 @@ class GameScene extends Phaser.Scene {
     this.emergencyUsedTotal = 0;
     this.dogsLostTotal      = 0;
     this._dangerActive      = new Array(GRID.ROWS).fill(false);
+
+    // ── Wave Challenge tracking ───────────────────────────────
+    this.challengeScore          = 0;
+    this.challengeBiscuitsEarned = 0;
 
     // ── Wave state ────────────────────────────────────────────
     this.currentWave   = 0;
@@ -298,6 +305,7 @@ class GameScene extends Phaser.Scene {
         if (!e.deathHandled) {
           e.deathHandled = true;
           this.treats += e.config.reward;
+          if (this.challengeMode) this.challengeScore += e.config.reward;
           this.spawnDeathBurst(e.x, e.y, e.config.color, e.type === 'boss' ? 1.4 : 1);
           this.spawnDeathPop(e.x, e.y, e.type === 'boss' ? 0xff8844 : e.config.color, e.type === 'boss' ? 54 : 28);
           if (e.type === 'boss' && e.bossDef && e.bossDef.deathExplosionRadius) {
@@ -403,10 +411,21 @@ class GameScene extends Phaser.Scene {
 
     // Wave completion
     if (this.wavePhase === 'fighting' && this.enemies.length === 0) {
-      if (this.currentWave >= this.levelData.waves.length) {
+      if (!this.challengeMode && this.currentWave >= this.levelData.waves.length) {
         this.endGame(true);
       } else {
         this.wavePhase = 'idle';
+        if (this.challengeMode) {
+          const reward = getChallengeMilestoneReward(this.currentWave);
+          if (reward > 0) {
+            this.challengeBiscuitsEarned += reward;
+            this.spawnFloatingText(
+              GAME_W / 2, GAME_H / 2 - 60,
+              `Wave ${this.currentWave} Clear!  +${reward} \uD83C\uDF6A`,
+              0xffd700
+            );
+          }
+        }
       }
     }
 
@@ -475,7 +494,9 @@ class GameScene extends Phaser.Scene {
     }
     while (this.spawnQueue.length > 0 && this.spawnQueue[0].delay <= elapsed) {
       const s = this.spawnQueue.shift();
-      this.enemies.push(new Enemy(this, SPAWN_X, enemyLaneY(s.lane, s.type), s.lane, s.type));
+      const e = new Enemy(this, SPAWN_X, enemyLaneY(s.lane, s.type), s.lane, s.type);
+      if (this.challengeMode) this._applyChallengeScaling(e, this.currentWave);
+      this.enemies.push(e);
     }
     if (this.spawnQueue.length === 0) this.wavePhase = 'fighting';
   }
@@ -483,20 +504,32 @@ class GameScene extends Phaser.Scene {
   startWave() {
     if (this.isBattlePaused) return;
     if (this.wavePhase !== 'idle') return;
-    if (this.currentWave >= this.levelData.waves.length) { this.endGame(true); return; }
-    this._dismissMenu();  // close any open action menu before wave starts
+    if (!this.challengeMode && this.currentWave >= this.levelData.waves.length) {
+      this.endGame(true); return;
+    }
+    this._dismissMenu();
     this.wavePhase     = 'spawning';
     this.waveStartTime = this.time.now;
-    this.spawnQueue    = [...this.levelData.waves[this.currentWave]];
     this._bossIncomingShownForWave = false;
     this.currentWave++;
+
+    if (this.challengeMode) {
+      this.spawnQueue = generateChallengeWave(this.currentWave);
+    } else {
+      this.spawnQueue = [...this.levelData.waves[this.currentWave - 1]];
+    }
+
     this._showWaveAnnouncement(this.currentWave);
     SFX.waveStart();
   }
 
   _showWaveAnnouncement(waveNum) {
-    const isLast = waveNum === this.levelData.waves.length;
-    const label  = isLast ? `WAVE ${waveNum} — FINAL WAVE!` : `WAVE ${waveNum}`;
+    const isBossW = this.challengeMode && isChallengeWaveBoss(waveNum);
+    const isLast  = !this.challengeMode && waveNum === this.levelData.waves.length;
+    let label;
+    if (isBossW)      label = `WAVE ${waveNum} — BOSS WAVE!`;
+    else if (isLast)  label = `WAVE ${waveNum} — FINAL WAVE!`;
+    else              label = `WAVE ${waveNum}`;
     this._flashStageOverlay(isLast ? 0x661100 : 0x10263a, isLast ? 0.22 : 0.16, 220);
 
     const txt = this.add.text(GAME_W / 2, GAME_H / 2 - 40, label, {
@@ -715,6 +748,12 @@ class GameScene extends Phaser.Scene {
     this.treats -= cost;
     dog.upgrade();
 
+    // Challenge mode: full HP restore on upgrade (tactical heal mechanic)
+    if (this.challengeMode) {
+      dog.hp = dog.maxHp;
+      this.spawnFloatingText(dog.x, dog.y - 66, '+HEALED!', 0x88ff88);
+    }
+
     // Visual + audio feedback
     this.spawnEvolutionBurst(dog.x, dog.y, dog.type);
     const lvColors = ['', '', '#88ccff', '#ffd700'];
@@ -726,6 +765,33 @@ class GameScene extends Phaser.Scene {
 
     // Refresh menu to reflect new level and upgrade cost
     this._showActionMenu(dog);
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // WAVE CHALLENGE — ENEMY SCALING
+  // ════════════════════════════════════════════════════════════
+
+  /**
+   * Scale an Enemy's stats for the current challenge wave.
+   * Called immediately after Enemy construction — does NOT mutate global ENEMY_DEFS.
+   */
+  _applyChallengeScaling(enemy, waveNum) {
+    const hpMult    = getChallengeEnemyHpMult(waveNum);
+    const speedMult = getChallengeEnemySpeedMult(waveNum);
+    const rewMult   = getChallengeRewardMult(waveNum);
+
+    enemy.hp    = Math.round(enemy.hp    * hpMult);
+    enemy.maxHp = Math.round(enemy.maxHp * hpMult);
+    enemy.speed     = enemy.speed     * speedMult;
+    enemy.baseSpeed = enemy.baseSpeed * speedMult;
+
+    // Isolate config so reward change doesn't affect ENEMY_DEFS
+    enemy.config = Object.assign({}, enemy.config);
+    enemy.config.reward = Math.round(enemy.config.reward * rewMult);
+
+    if (enemy.shieldHp > 0) {
+      enemy.shieldHp = Math.round(enemy.shieldHp * hpMult);
+    }
   }
 
   /** Starburst particle effect for dog evolution */
@@ -1323,11 +1389,14 @@ class GameScene extends Phaser.Scene {
     overlay.fillRect(0, 0, GAME_W, GAME_H);
     this._transitionOverlay = overlay;
 
-    const title = this.add.text(GAME_W / 2, GAME_H / 2 - 18, `Level ${this.levelId}`, {
+    const titleLabel    = this.challengeMode ? '⚡ Wave Challenge' : `Level ${this.levelId}`;
+    const subtitleLabel = this.challengeMode ? 'Survive as long as you can!' : this.levelData.name;
+    const title = this.add.text(GAME_W / 2, GAME_H / 2 - 18, titleLabel, {
       fontSize: '34px', fontFamily: 'Arial Black',
-      color: '#ffd700', stroke: '#000', strokeThickness: 5,
+      color: this.challengeMode ? '#bb88ff' : '#ffd700',
+      stroke: '#000', strokeThickness: 5,
     }).setOrigin(0.5).setDepth(181);
-    const subtitle = this.add.text(GAME_W / 2, GAME_H / 2 + 18, this.levelData.name, {
+    const subtitle = this.add.text(GAME_W / 2, GAME_H / 2 + 18, subtitleLabel, {
       fontSize: '16px', fontFamily: 'Arial',
       color: '#c8def8', stroke: '#000', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(181);
@@ -1464,7 +1533,27 @@ class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Lost
+    // Challenge mode loss — go to WaveGameOverScene
+    if (this.challengeMode) {
+      const wavesCompleted = Math.max(0, this.currentWave - 1);
+      const isNewBest = Progression.saveChallengeResult(
+        wavesCompleted, this.challengeBiscuitsEarned);
+      const overlay = this.add.graphics().setDepth(190);
+      overlay.fillStyle(0x000000, 0.5);
+      overlay.fillRect(0, 60, GAME_W, 440);
+      this.time.delayedCall(600, () => {
+        this.scene.stop('UIScene');
+        this.scene.start('WaveGameOverScene', {
+          wavesCompleted,
+          isNewBest,
+          biscuitsEarned: this.challengeBiscuitsEarned,
+          score: Math.floor(this.challengeScore),
+        });
+      });
+      return;
+    }
+
+    // Campaign loss
     Progression.applyBattleHomeOutcome(false);
     const overlay = this.add.graphics().setDepth(190);
     overlay.fillStyle(0x000000, 0.5);
@@ -1534,11 +1623,52 @@ class GameScene extends Phaser.Scene {
     this.isBattlePaused = false;
   }
 
+  endChallenge() {
+    if (!this.challengeMode) return;
+    if (this.wavePhase === 'won' || this.wavePhase === 'lost') return;
+
+    // Count waves completed: if in idle, currentWave was fully cleared
+    const wavesCompleted = (this.wavePhase === 'idle')
+      ? this.currentWave
+      : Math.max(0, this.currentWave - 1);
+
+    // Resume so tweens/cleanup work cleanly
+    if (this.isBattlePaused) this.resumeBattle();
+    this.wavePhase = 'lost';
+    this._dismissMenu();
+
+    const isNewBest = Progression.saveChallengeResult(
+      wavesCompleted, this.challengeBiscuitsEarned);
+    const ui = this.scene.get('UIScene');
+    if (ui && ui.showEndMessage) ui.showEndMessage();
+
+    const overlay = this.add.graphics().setDepth(190);
+    overlay.fillStyle(0x000000, 0);
+    overlay.fillRect(0, 0, GAME_W, GAME_H);
+    this.tweens.add({
+      targets: overlay, alpha: 1, duration: 350,
+      onComplete: () => {
+        this._cleanupBattleState();
+        this.scene.stop('UIScene');
+        this.scene.start('WaveGameOverScene', {
+          wavesCompleted,
+          isNewBest,
+          biscuitsEarned: this.challengeBiscuitsEarned,
+          score: Math.floor(this.challengeScore),
+        });
+      },
+    });
+  }
+
   restartLevel() {
     GameState.selectedDog = null;
     this._cleanupBattleState();
     this.scene.stop('UIScene');
-    this.scene.restart({ levelId: this.levelId });
+    if (this.challengeMode) {
+      this.scene.start('LoadoutScene', { challengeMode: true });
+    } else {
+      this.scene.restart({ levelId: this.levelId });
+    }
   }
 
   returnHome() {
