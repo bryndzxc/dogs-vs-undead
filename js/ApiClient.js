@@ -2,11 +2,14 @@
 // ApiClient.js — lightweight fetch wrapper for the Laravel API
 // ============================================================
 
-window.DVZ_API_BASE_URL = window.DVZ_API_BASE_URL || 'backend/public/api';
-
 const ApiClient = {
   getBaseUrl() {
-    return String(window.DVZ_API_BASE_URL || 'backend/public/api').replace(/\/+$/, '');
+    const apiBaseUrl = window.DVZ_API_CONFIG?.apiBaseUrl || window.DVZ_API_BASE_URL;
+    if (!apiBaseUrl) {
+      throw new Error('DVZ API base URL is not configured.');
+    }
+
+    return String(apiBaseUrl).replace(/\/+$/, '');
   },
 
   _buildUrl(path) {
