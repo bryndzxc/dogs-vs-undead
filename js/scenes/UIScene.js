@@ -425,10 +425,12 @@ class UIScene extends Phaser.Scene {
 
     const msgs = {
       idle:     gs.currentWave === 0
-                  ? 'Place Oyongs, then press Start Wave!'
+                  ? (gs._prepTimerActive
+                    ? `Wave 1 starts in ${Math.ceil(gs._prepTimerRemaining / 1000)}s — place Oyongs or press Start Wave!`
+                    : 'Place Oyongs, then press Start Wave!')
                   : gs.challengeMode
-                    ? `Wave ${gs.currentWave} cleared! \u26A1 Press Start for next wave`
-                    : `Wave ${gs.currentWave} done!  Prepare for Wave ${gs.currentWave + 1}`,
+                    ? `Wave ${gs.currentWave} cleared! \u26A1 Next wave incoming`
+                    : `Wave ${gs.currentWave} done!  Next wave incoming`,
       spawning: `Wave ${gs.currentWave} — zombies incoming!`,
       fighting: `Wave ${gs.currentWave} — hold the line!`,
       won:      'Victory! The neighborhood is safe!',
@@ -439,8 +441,7 @@ class UIScene extends Phaser.Scene {
       gs.isBattlePaused ? 'Game paused' : (activeBoss ? 'Boss fight — hold the line!' : (msgs[gs.wavePhase] || ''))
     );
 
-    const showBtn = !gs.isBattlePaused && gs.wavePhase === 'idle' &&
-      (gs.challengeMode || gs.currentWave < totalWaves);
+    const showBtn = !gs.isBattlePaused && gs.wavePhase === 'idle' && gs.currentWave === 0;
     this.startBtnTxt.setVisible(showBtn);
     this.startBtnGfx.clear();
     if (showBtn) {

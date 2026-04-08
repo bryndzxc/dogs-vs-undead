@@ -24,6 +24,7 @@ function _defaultHome() {
       text: 'Oyong is curled up happily at home.',
       createdAt: Date.now(),
     },
+    lastPetAt: 0,
     lastCareUpdateAt: Date.now(),
   };
 }
@@ -185,6 +186,10 @@ const Progression = {
     saveData.home.lastCareUpdateAt = Math.max(
       0,
       Math.floor(_parseNumber(rawHome.lastCareUpdateAt, Date.now()))
+    );
+    saveData.home.lastPetAt = Math.max(
+      0,
+      Math.floor(_parseNumber(rawHome.lastPetAt, 0))
     );
 
     const rawStats = source?.stats || {};
@@ -659,6 +664,7 @@ const Progression = {
 
   performCareAction(action) {
     const saveData = this.load();
+    const now = Date.now();
     const gains = { hunger: 0, mood: 0, energy: 0 };
     let cost = 0;
     let bondGain = 0;
@@ -677,6 +683,15 @@ const Progression = {
       eventType = 'feed';
       message = `Oyong enjoyed the snack. Hunger +${gains.hunger}, Mood +${gains.mood}.`;
     } else if (action === 'pet') {
+      const elapsedSincePet = now - Math.max(0, saveData.home.lastPetAt || 0);
+      if (elapsedSincePet < HOME_PET_COOLDOWN_MS) {
+        return {
+          ok: false,
+          reason: 'cooldown',
+          remainingMs: HOME_PET_COOLDOWN_MS - elapsedSincePet,
+          message: 'Oyong needs a short breather before more pets.',
+        };
+      }
       gains.mood = HOME_PET_MOOD_GAIN;
       gains.energy = HOME_PET_ENERGY_GAIN;
       bondGain = 3;
@@ -699,7 +714,8 @@ const Progression = {
 
     const bond = this._awardBond(saveData, bondGain);
     saveData.home.currentEvent = this._createHomeEvent(saveData.home, eventType);
-    saveData.home.lastCareUpdateAt = Date.now();
+    saveData.home.lastCareUpdateAt = now;
+    if (action === 'pet') saveData.home.lastPetAt = now;
     this._syncMissionState(saveData);
 
     const persisted = this.save(saveData, { syncCloud: true });

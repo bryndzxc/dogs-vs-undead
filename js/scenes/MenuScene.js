@@ -104,10 +104,10 @@ class MenuScene extends Phaser.Scene {
     const currentUser = typeof AuthService !== 'undefined' && AuthService.getCurrentUser
       ? AuthService.getCurrentUser()
       : null;
-    const playLabel = currentUser
-      ? (hasProgress ? 'CONTINUE' : 'PLAY')
-      : (hasProgress ? 'CONTINUE AS GUEST' : 'PLAY AS GUEST');
-    const playY = hasProgress ? 352 : 364;
+
+    // Guest status is shown in the account chip — keep labels short
+    const playLabel = hasProgress ? 'CONTINUE' : 'PLAY';
+    const playY = hasProgress ? 352 : 368;
 
     // PLAY / CONTINUE button
     this._makeButton(
@@ -120,7 +120,7 @@ class MenuScene extends Phaser.Scene {
 
     if (hasProgress) {
       // New Game button (secondary)
-      this._makeButton(GAME_W / 2, playY + 60, 'NEW GAME', 0x5a3a1a, 0x7a5a2a, () => {
+      this._makeButton(GAME_W / 2, playY + 58, 'NEW GAME', 0x5a3a1a, 0x7a5a2a, () => {
         Progression.reset();
         GameState.selectedDog = null;
         GameState.loadoutDogs = [];
@@ -129,6 +129,12 @@ class MenuScene extends Phaser.Scene {
         GameState.lastBattleBonus = 0;
         this.scene.start('OyongHomeScene');
       });
+    }
+
+    // LOG IN button — only when not signed in
+    if (!currentUser) {
+      const loginY = hasProgress ? playY + 118 : playY + 58;
+      this._makeLoginButton(GAME_W / 2, loginY);
     }
 
     // Credits line
@@ -144,8 +150,8 @@ class MenuScene extends Phaser.Scene {
       : null;
 
     const message = user
-      ? `Signed in as ${user.username}. Cloud save and leaderboard are active.`
-      : 'Guest mode keeps progress local. Use the account bar to log in only if you want online features.';
+      ? `Signed in as ${user.username}  ·  Cloud save active`
+      : 'Progress saves locally. Log in for leaderboard & cloud save.';
 
     this.add.text(GAME_W / 2, 292, message, {
       fontSize: '14px',
@@ -154,7 +160,6 @@ class MenuScene extends Phaser.Scene {
       stroke: '#000',
       strokeThickness: 2,
       align: 'center',
-      wordWrap: { width: 560 },
     }).setOrigin(0.5);
   }
 
@@ -174,11 +179,49 @@ class MenuScene extends Phaser.Scene {
     const txt = this.add.text(x, y, label, {
       fontSize: '26px', fontFamily: 'Arial Black',
       color: '#ffffff', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0.5);
 
-    txt.on('pointerover',  () => { draw(colorHover);  txt.setScale(1.05); });
-    txt.on('pointerout',   () => { draw(colorNormal); txt.setScale(1.0);  });
-    txt.on('pointerdown',  () => { SFX.click(); onClick(); });
+    const zone = this.add.zone(x, y, W, H)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on('pointerover',  () => { draw(colorHover);  txt.setScale(1.05); });
+    zone.on('pointerout',   () => { draw(colorNormal); txt.setScale(1.0);  });
+    zone.on('pointerdown',  () => { SFX.click(); onClick(); });
+  }
+
+  _makeLoginButton(x, y) {
+    const W = 210, H = 38;
+    const bg = this.add.graphics();
+    const colorNormal = 0x122240;
+    const colorHover  = 0x24486a;
+
+    const draw = (col) => {
+      bg.clear();
+      bg.fillStyle(col, 1);
+      bg.fillRoundedRect(x - W / 2, y - H / 2, W, H, 8);
+      bg.lineStyle(1.5, 0x5599cc, 0.65);
+      bg.strokeRoundedRect(x - W / 2, y - H / 2, W, H, 8);
+    };
+    draw(colorNormal);
+
+    const txt = this.add.text(x, y, 'LOG IN / REGISTER', {
+      fontSize: '16px', fontFamily: 'Arial Black',
+      color: '#88bbdd', stroke: '#000', strokeThickness: 2,
+    }).setOrigin(0.5);
+
+    const zone = this.add.zone(x, y, W, H)
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    zone.on('pointerover',  () => { draw(colorHover);  txt.setStyle({ color: '#ddeeff' }); });
+    zone.on('pointerout',   () => { draw(colorNormal); txt.setStyle({ color: '#88bbdd' }); });
+    zone.on('pointerdown',  () => {
+      SFX.click();
+      if (typeof OverlayUI !== 'undefined' && OverlayUI.openAuth) {
+        OverlayUI.openAuth('login');
+      }
+    });
   }
 
   _buildDog() {

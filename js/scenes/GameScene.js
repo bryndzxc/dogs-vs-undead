@@ -95,6 +95,11 @@ class GameScene extends Phaser.Scene {
     this.spawnQueue    = [];
     this.waveStartTime = 0;
 
+    // ── Prep timer ────────────────────────────────────────────
+    this._prepTimerMs        = 30000;
+    this._prepTimerRemaining = this._prepTimerMs;
+    this._prepTimerActive    = true;
+
     // ── Field interaction state ───────────────────────────────
     this.fieldMode   = 'place';   // 'place' | 'menu' | 'moving'
     this.menuDog     = null;      // dog whose action menu is open
@@ -109,11 +114,13 @@ class GameScene extends Phaser.Scene {
     this.input.on('pointerdown', this.onClick, this);
     this.events.once('shutdown', this._cleanupBattleState, this);
 
-    // Passive income ticker
+    // Passive income ticker — only during active battle or between waves, not pre-wave prep
     this.passiveIncomeEvent = this.time.addEvent({
       delay:    this.levelData.passiveInterval,
       callback: () => {
-        if (this.wavePhase !== 'won' && this.wavePhase !== 'lost') {
+        const inBattle    = this.wavePhase === 'spawning' || this.wavePhase === 'fighting';
+        const betweenWaves = this.wavePhase === 'idle' && this.currentWave > 0;
+        if (inBattle || betweenWaves) {
           this.treats += this.levelData.passiveIncome;
           this.spawnFloatingText(160, 32, `+${this.levelData.passiveIncome}`, 0xffd700);
           SFX.income();
@@ -288,6 +295,14 @@ class GameScene extends Phaser.Scene {
     if (this.isBattlePaused) return;
     if (this.wavePhase === 'won' || this.wavePhase === 'lost') return;
 
+    if (this.wavePhase === 'idle' && this._prepTimerActive) {
+      this._prepTimerRemaining -= delta;
+      if (this._prepTimerRemaining <= 0) {
+        this.startWave();
+        return;
+      }
+    }
+
     this.tickSpawns(time);
 
     // Enemies
@@ -426,6 +441,8 @@ class GameScene extends Phaser.Scene {
             );
           }
         }
+        this.startWave();
+        return;
       }
     }
 
@@ -466,6 +483,15 @@ class GameScene extends Phaser.Scene {
 
     // Refresh info panel text (HP changes each frame)
     if (activeDog) this._refreshInfoPanel(activeDog);
+
+    // Reactively refresh upgrade button when treat affordability flips
+    if (this.fieldMode === 'menu' && this.menuDog && this.menuDog.level < 3) {
+      const upgCost      = UPGRADE_COSTS[this.menuDog.type][this.menuDog.level - 1];
+      const nowAffordable = this.treats >= upgCost;
+      if (nowAffordable !== this._menuUpgradeAffordable) {
+        this._showActionMenu(this.menuDog);
+      }
+    }
 
     this.drawGridOverlay();
   }
@@ -508,6 +534,7 @@ class GameScene extends Phaser.Scene {
       this.endGame(true); return;
     }
     this._dismissMenu();
+    this._stopPrepCountdown();
     this.wavePhase     = 'spawning';
     this.waveStartTime = this.time.now;
     this._bossIncomingShownForWave = false;
@@ -521,6 +548,11 @@ class GameScene extends Phaser.Scene {
 
     this._showWaveAnnouncement(this.currentWave);
     SFX.waveStart();
+  }
+
+  _stopPrepCountdown() {
+    this._prepTimerActive = false;
+    this._prepTimerRemaining = this._prepTimerMs;
   }
 
   _showWaveAnnouncement(waveNum) {
@@ -678,9 +710,14 @@ class GameScene extends Phaser.Scene {
     g.lineBetween(mx + 10, my + 46, mx + panelW - 10, my + 46);
 
     // ── Upgrade button ────────────────────────────────────────
+    // Snapshot affordability so update() can detect when it changes
+    this._menuUpgradeAffordable = dog.level < 3
+      ? this.treats >= UPGRADE_COSTS[dog.type][dog.level - 1]
+      : null;
+
     if (dog.level < 3) {
-      const upgCost     = UPGRADE_COSTS[dog.type][dog.level - 1];
-      const canAffordUpg = this.treats >= upgCost;
+      const upgCost      = UPGRADE_COSTS[dog.type][dog.level - 1];
+      const canAffordUpg = this._menuUpgradeAffordable;
       this._buildMenuBtn(
         mx, my + 54, panelW,
         canAffordUpg

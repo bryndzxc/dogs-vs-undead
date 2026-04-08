@@ -313,46 +313,62 @@ class OyongHomeScene extends Phaser.Scene {
   _buildHomeButtons() {
     const { side } = this.layout;
     const railX = side.x + 18;
-    const railY = side.y + 306;
+    const railY = side.y + 302;
     const railW = side.w - 36;
-    const railH = 80;
+    const railH = 102;
 
     this.actionRailG = this.add.graphics().setDepth(12);
     this.actionRailG.fillStyle(0x0f1c2e, 0.96);
     this.actionRailG.fillRoundedRect(railX, railY, railW, railH, 14);
     this.actionRailG.lineStyle(1.5, 0x3a5a78, 1);
     this.actionRailG.strokeRoundedRect(railX, railY, railW, railH, 14);
-    // Subtle separators between button tiers
-    this.actionRailG.lineStyle(0.5, 0xffffff, 0.10);
-    this.actionRailG.lineBetween(railX + 12, railY + 36, railX + railW - 12, railY + 36);
-    this.actionRailG.lineBetween(railX + 12, railY + 64, railX + railW - 12, railY + 64);
 
-    const playH  = 32;
+    const addSectionLabel = (x, y, text, align = 'left') => this.add.text(x, y, text, {
+      fontSize: '9px',
+      fontFamily: 'Arial Black',
+      color: '#8ebbd8',
+      stroke: '#000',
+      strokeThickness: 2,
+    }).setOrigin(align === 'center' ? 0.5 : 0, 0.5).setDepth(14).setAlpha(0.85);
+
+    // Subtle separators between button groups
+    this.actionRailG.lineStyle(0.5, 0xffffff, 0.10);
+    this.actionRailG.lineBetween(railX + 12, railY + 42, railX + railW - 12, railY + 42);
+    this.actionRailG.lineBetween(railX + 12, railY + 74, railX + railW - 12, railY + 74);
+
     const careGap = 8;
     const careW = Math.floor((railW - careGap * 2) / 3);
-    const careH = 22;
-    const playY = railY + 18;
-    const careY = railY + 52;
-    const navY  = railY + 72;
+    const careH = 16;
+    const primaryW = railW - 12;
+    const primaryH = 24;
+    const primaryY = railY + 24;
+    const secondaryY = railY + 58;
+    const careY = railY + 94;
 
-    // Two main action buttons side by side: Levels and Wave Challenge
     const halfW  = Math.floor((railW - careGap - 8) / 2);
     const leftX  = railX + 4 + halfW / 2;
     const rightX = railX + 4 + halfW + careGap + halfW / 2;
 
-    const waveBest = Progression.getWaveBest(this.saveData);
-    const challengeLabel = waveBest > 0 ? `\u26A1 Wave ${waveBest}` : '\u26A1 Challenge';
-
-    this._makeActionButton('play', leftX, playY, halfW, playH, 'Levels', 0x2d6b3e, 0x43a860, () => {
-      this.scene.start('LevelSelectScene');
-    });
-    this.actionButtons.play.txt.setFontSize('14px');
-
-    this._makeActionButton('challenge', rightX, playY, halfW, playH, challengeLabel, 0x3a1a5a, 0x6a3aaa, () => {
+    addSectionLabel(railX + 12, railY + 10, 'Battle');
+    this._makeActionButton('challenge', railX + railW / 2, primaryY, primaryW, primaryH, '⚡ Start Wave', 0x3a1a5a, 0x6a3aaa, () => {
       this.scene.start('LoadoutScene', { challengeMode: true });
     });
-    this.actionButtons.challenge.txt.setFontSize('11px');
+    this.actionButtons.challenge.txt.setFontSize('15px');
 
+    addSectionLabel(leftX - halfW / 2, railY + 48, 'Stage');
+    this._makeActionButton('play', leftX, secondaryY, halfW, 18, 'Levels', 0x2d6b3e, 0x43a860, () => {
+      this.scene.start('LevelSelectScene');
+    });
+    this.actionButtons.play.txt.setFontSize('11px');
+
+    addSectionLabel(rightX - halfW / 2, railY + 48, 'Collection');
+    this._makeActionButton('dogs', rightX, secondaryY, halfW, 18, 'Dogs / Collection', 0x16283a, 0x243d56, () => {
+      this._setPanel('collection');
+    });
+    this.actionButtons.dogs.txt.setFontSize('9px');
+    this.actionButtons.dogs.txt.setColor('#8ebbd8');
+
+    addSectionLabel(railX + 12, railY + 84, 'Care');
     this._makeActionButton('feed', railX + careW / 2, careY, careW, careH, 'Feed', 0x7a4e28, 0xa06030, () => {
       this._performCareAction('feed');
     });
@@ -362,12 +378,9 @@ class OyongHomeScene extends Phaser.Scene {
     this._makeActionButton('rest', railX + (careW + careGap) * 2 + careW / 2, careY, careW, careH, 'Rest', 0x3d5178, 0x5878a8, () => {
       this._performCareAction('rest');
     });
-
-    this._makeActionButton('dogs', side.x + side.w / 2, navY, railW - 8, 14, 'Dogs / Collection', 0x16283a, 0x243d56, () => {
-      this._setPanel('collection');
-    });
-    this.actionButtons.dogs.txt.setFontSize('10px');
-    this.actionButtons.dogs.txt.setColor('#8ebbd8');
+    this.actionButtons.feed.txt.setFontSize('10px');
+    this.actionButtons.pet.txt.setFontSize('10px');
+    this.actionButtons.rest.txt.setFontSize('10px');
   }
 
   _buildInfoPanel() {
@@ -509,13 +522,16 @@ class OyongHomeScene extends Phaser.Scene {
     this.statRowTexts.push(labelText, suffixText);
   }
 
-  _setPanel(mode) {
+  _setPanel(mode, preserveScroll = false) {
     const nextMode = (mode === 'dogs' || mode === 'units') ? 'collection' : mode;
     if (this.panelMode !== nextMode) SFX.tab();
     this.panelMode = nextMode;
+    const savedScroll = preserveScroll ? this.panelScrollY : 0;
     this.panelScrollY = 0;
     this.panelScrollMax = 0;
     this._clearPanel();
+    // Restore saved scroll before render so _finalizePanelContent clamps and applies it
+    this.panelScrollY = savedScroll;
     this._renderMainTabs();
     if (this.panelMode === 'home') this._renderHomePanel();
     else if (this.panelMode === 'collection') this._renderCollectionPanel();
@@ -874,8 +890,9 @@ class OyongHomeScene extends Phaser.Scene {
         wordWrap: { width: viewport.w - 32 },
       }).setDepth(16));
 
-    const missionY = careY + 94;
-    const missionH = 62 + Math.max(1, missions.length) * 18;
+    const missionY   = careY + 94;
+    const missionRowH = 30;   // title line + desc line per mission
+    const missionH   = 56 + Math.max(1, missions.length) * missionRowH;
     const missionG = this._addPanelContent(this.add.graphics().setDepth(15));
     missionG.fillStyle(0x111e2c, 1);
     missionG.fillRoundedRect(viewport.x + 2, missionY, viewport.w - 4, missionH, 12);
@@ -885,17 +902,24 @@ class OyongHomeScene extends Phaser.Scene {
       fontSize: '13px', fontFamily: 'Arial Black', color: '#e8f4ff',
     }).setDepth(16));
     if (missions.length === 0) {
-      this._addPanelContent(this.add.text(viewport.x + 16, missionY + 38,
+      this._addPanelContent(this.add.text(viewport.x + 16, missionY + 36,
         'All missions complete — check back after more battles.', {
           fontSize: '10px', fontFamily: 'Arial', color: '#9abcd4',
           wordWrap: { width: viewport.w - 32 },
         }).setDepth(16));
     } else {
       missions.forEach((mission, idx) => {
-        this._addPanelContent(this.add.text(viewport.x + 16, missionY + 36 + idx * 18,
+        const rowY = missionY + 34 + idx * missionRowH;
+        // Title row: mission name + progress + reward
+        this._addPanelContent(this.add.text(viewport.x + 16, rowY,
           `${mission.title}  •  ${mission.progressText}  •  ${mission.rewardText}`, {
-            fontSize: '10px', fontFamily: 'Arial', color: '#b8d4ea',
-            wordWrap: { width: viewport.w - 32 },
+            fontSize: '10px', fontFamily: 'Arial Black', color: '#b8d4ea',
+          }).setDepth(16));
+        // Objective row: specific goal description
+        this._addPanelContent(this.add.text(viewport.x + 18, rowY + 13,
+          mission.desc, {
+            fontSize: '9px', fontFamily: 'Arial', color: '#6a8ea8',
+            wordWrap: { width: viewport.w - 36 },
           }).setDepth(16));
       });
     }
@@ -1141,7 +1165,7 @@ class OyongHomeScene extends Phaser.Scene {
     this.statusMessage = `${result.collectible.name} is now equipped at Oyong Home.`;
     SFX.buy();
     this._refreshHud();
-    this._setPanel('collection');
+    this._setPanel('collection', true);
   }
 
   _unequipCollectible(category) {
@@ -1155,7 +1179,7 @@ class OyongHomeScene extends Phaser.Scene {
     this.statusMessage = `${result.collectible ? result.collectible.name : 'Cosmetic'} was unequipped.`;
     SFX.click();
     this._refreshHud();
-    this._setPanel('collection');
+    this._setPanel('collection', true);
   }
 
   _renderDecorPanel() {
@@ -1351,7 +1375,7 @@ class OyongHomeScene extends Phaser.Scene {
 
     this.selectedDecorSlot = def.slot;
     this._refreshHud();
-    this._setPanel('decor');
+    this._setPanel('decor', true);
   }
 
   _performCareAction(action) {
@@ -1368,13 +1392,17 @@ class OyongHomeScene extends Phaser.Scene {
       SFX.buy();
       const missionNotes = Progression.drainMissionNotifications();
       if (missionNotes.length > 0) this._showMissionPopups(missionNotes);
+    } else if (result && result.reason === 'cooldown') {
+      const waitSeconds = Math.max(1, Math.ceil((result.remainingMs || 0) / 1000));
+      this.statusMessage = `${result.message} Try again in ${waitSeconds}s.`;
+      SFX.error();
     } else if (result && result.reason === 'not_enough_currency') {
       this.statusMessage = `Need ${HOME_FEED_COST} ${HOME_CURRENCY_NAME.toLowerCase()} to feed Oyong.`;
       SFX.error();
     }
 
     this._refreshHud();
-    if (this.panelMode === 'decor') this._setPanel('decor');
+    if (this.panelMode === 'decor') this._setPanel('decor', true);
   }
 
   _spawnHearts(count, x, y) {

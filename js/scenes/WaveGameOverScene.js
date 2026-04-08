@@ -57,7 +57,7 @@ class WaveGameOverScene extends Phaser.Scene {
 
   _buildPanel() {
     const panelW = Math.min(620, GAME_W - 60);
-    const panelH = 380;
+    const panelH = 400; // was 380 — extra 20px prevents auth hint text from clipping into buttons
     this._px = (GAME_W - panelW) / 2;
     this._py = (GAME_H - panelH) / 2 - 10;
     this._pw = panelW;

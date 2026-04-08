@@ -72,7 +72,7 @@ class LevelCompleteScene extends Phaser.Scene {
 
   _buildPanel() {
     const panelW = Math.min(690, GAME_W - 60);
-    const panelH = 502 + (this.hasUnlock ? 70 : 0);
+    const panelH = 536 + (this.hasUnlock ? 94 : 0);
     const px = (GAME_W - panelW) / 2;
     const py = (GAME_H - panelH) / 2;
     const borderColor = this.stars === 3 ? 0xffd700 : this.stars === 2 ? 0x88aadd : 0x5a7a9a;
@@ -85,7 +85,7 @@ class LevelCompleteScene extends Phaser.Scene {
     g.fillStyle(borderColor, 0.12);
     g.fillRoundedRect(px, py, panelW, 56, { tl: 14, tr: 14, bl: 0, br: 0 });
     g.fillStyle(0xffffff, 0.03);
-    g.fillRoundedRect(px + 18, py + 70, panelW - 36, panelH - 148, 18);
+    g.fillRoundedRect(px + 18, py + 70, panelW - 36, panelH - 168, 18);
 
     this.panelY = py;
     this.panelH = panelH;
@@ -93,7 +93,7 @@ class LevelCompleteScene extends Phaser.Scene {
     this.panelW = panelW;
     const cx    = GAME_W / 2;
     this.contentTop = py + 28;
-    this.buttonY    = py + panelH - 44;
+    this.buttonY    = py + panelH - 52;
 
     this.add.text(cx, this.contentTop, 'LEVEL COMPLETE!', {
       fontSize: panelW < 620 ? '30px' : '34px', fontFamily: 'Arial Black',
@@ -108,10 +108,10 @@ class LevelCompleteScene extends Phaser.Scene {
     if (this.isNewBest) {
       const bg2 = this.add.graphics().setDepth(5);
       bg2.fillStyle(0x1a4a1a, 1);
-      bg2.fillRoundedRect(cx - 68, this.contentTop + 52, 136, 24, 8);
+      bg2.fillRoundedRect(cx - 68, this.contentTop + 68, 136, 24, 8);
       bg2.lineStyle(1.5, 0x44dd88, 1);
-      bg2.strokeRoundedRect(cx - 68, this.contentTop + 52, 136, 24, 8);
-      this.add.text(cx, this.contentTop + 64, 'NEW BEST!', {
+      bg2.strokeRoundedRect(cx - 68, this.contentTop + 68, 136, 24, 8);
+      this.add.text(cx, this.contentTop + 80, 'NEW BEST!', {
         fontSize: '13px', fontFamily: 'Arial Black', color: '#44dd88',
       }).setOrigin(0.5).setDepth(6);
     }
@@ -119,7 +119,7 @@ class LevelCompleteScene extends Phaser.Scene {
 
   _buildStarRow() {
     const cx = GAME_W / 2;
-    const cy = this.panelY + 138;
+    const cy = this.panelY + 176;
     const spread = this.panelW < 620 ? 84 : 100;
     const starPositions = [cx - spread, cx, cx + spread];
     const size = this.panelW < 620 ? 34 : 38;
@@ -177,7 +177,7 @@ class LevelCompleteScene extends Phaser.Scene {
 
   _buildStats() {
     const cx  = GAME_W / 2;
-    const py2 = this.panelY + 186;
+    const py2 = this.panelY + 230;
 
     const flavors = [
       'Flawless! No Oyongs lost, no close calls.',
@@ -187,13 +187,14 @@ class LevelCompleteScene extends Phaser.Scene {
     this.add.text(cx, py2, flavors[this.stars - 1], {
       fontSize: this.panelW < 620 ? '15px' : '16px', fontFamily: 'Arial',
       color: '#aaccdd', stroke: '#000', strokeThickness: 1,
-      wordWrap: { width: this.panelW - 90 }, align: 'center',
+      wordWrap: { width: this.panelW - 100 }, align: 'center',
+      lineSpacing: 4,
     }).setOrigin(0.5).setDepth(5);
   }
 
   _buildRewardBadge() {
     const cx = GAME_W / 2;
-    const y  = this.panelY + 246;
+    const y  = this.panelY + 304;
     const breakdown = GameState.lastHomeRewardBreakdown || {};
     const reward = GameState.lastHomeReward || 0;
     const totalCurrency = Progression.getHomeCurrency(this.saveData);
@@ -204,11 +205,11 @@ class LevelCompleteScene extends Phaser.Scene {
 
     const g = this.add.graphics().setDepth(5);
     g.fillStyle(0x1a2f20, 1);
-    g.fillRoundedRect(cx - 190, y - 32, 380, 66, 12);
+    g.fillRoundedRect(cx - 194, y - 42, 388, 86, 12);
     g.lineStyle(2, 0x5edb8b, 1);
-    g.strokeRoundedRect(cx - 190, y - 32, 380, 66, 12);
+    g.strokeRoundedRect(cx - 194, y - 42, 388, 86, 12);
 
-    this._rewardAmountText = this.add.text(cx, y - 12, `Oyong Home reward: +0 ${HOME_CURRENCY_NAME}`, {
+    this._rewardAmountText = this.add.text(cx, y - 18, `Oyong Home reward: +0 ${HOME_CURRENCY_NAME}`, {
       fontSize: this.panelW < 620 ? '15px' : '16px', fontFamily: 'Arial Black',
       color: '#e8ffd8', stroke: '#000', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(6);
@@ -216,9 +217,11 @@ class LevelCompleteScene extends Phaser.Scene {
     this.add.text(cx, y + 8, detailText, {
       fontSize: '11px', fontFamily: 'Arial',
       color: '#9de4b2',
+      wordWrap: { width: 334 }, align: 'center',
+      lineSpacing: 3,
     }).setOrigin(0.5).setDepth(6);
 
-    this._rewardTotalText = this.add.text(cx, y + 24, `Total ${HOME_CURRENCY_NAME}: ${startTotal}`, {
+    this._rewardTotalText = this.add.text(cx, y + 30, `Total ${HOME_CURRENCY_NAME}: ${startTotal}`, {
       fontSize: '11px', fontFamily: 'Arial',
       color: '#9de4b2',
     }).setOrigin(0.5).setDepth(6);
@@ -262,7 +265,7 @@ class LevelCompleteScene extends Phaser.Scene {
 
   _showUnlock(type, label, desc) {
     const cx = GAME_W / 2;
-    const uy = this.panelY + 406;
+    const uy = this.panelY + 496;
     const panelW = Math.min(470, this.panelW - 90);
     const panelH = 88;
     const unlock = this.add.container(cx, uy).setDepth(7);
@@ -324,13 +327,14 @@ class LevelCompleteScene extends Phaser.Scene {
 
   _buildDropReveal() {
     const cx = GAME_W / 2;
-    const y = this.panelY + 328;
+    const y = this.panelY + (this.hasUnlock ? 392 : 406);
     const reward = this.collectibleDrop;
     const style = getCollectibleRarityStyle(reward ? reward.rarity : 'common');
     const chancePct = Math.round((this.rewardDropInfo?.chance || 0) * 100);
     const rates = this.rewardDropInfo?.rarityRates || getCollectibleDropRates();
     const g = this.add.graphics().setDepth(7);
-    const oddsText = `Drop chance ${chancePct}% • Common ${Math.round(rates.common * 100)}% • Rare ${Math.round(rates.rare * 100)}% • Epic ${Math.round(rates.epic * 100)}% • Legendary ${Math.round(rates.legendary * 100)}%`;
+    const textLeft = cx - 118;
+    const oddsText = `Drop chance ${chancePct}%\nCommon ${Math.round(rates.common * 100)}% • Rare ${Math.round(rates.rare * 100)}%\nEpic ${Math.round(rates.epic * 100)}% • Legendary ${Math.round(rates.legendary * 100)}%`;
     const duplicateText = this.rewardDropInfo?.collectionComplete
       ? 'Collection complete — no new cosmetics left in the pool.'
       : this.rewardDropInfo?.duplicateProtected
@@ -339,33 +343,36 @@ class LevelCompleteScene extends Phaser.Scene {
 
     this._drawRewardBoxPanel(g, cx, y, false, reward ? style : null);
 
-    const header = this.add.text(cx, y - 22, 'REWARD BOX READY', {
+    const header = this.add.text(textLeft, y - 38, 'REWARD BOX READY', {
       fontSize: '15px', fontFamily: 'Arial Black',
       color: '#fff4cf', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(8);
+    }).setOrigin(0, 0.5).setDepth(8);
 
-    const nameText = this.add.text(cx, y - 2, 'Opening...', {
+    const nameText = this.add.text(textLeft, y - 12, 'Opening...', {
       fontSize: '18px', fontFamily: 'Arial Black',
       color: '#ffffff', stroke: '#000', strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(8);
+    }).setOrigin(0, 0.5).setDepth(8);
 
-    const descText = this.add.text(cx, y + 18, 'A reward box rattles with a possible cosmetic drop.', {
+    const descText = this.add.text(textLeft, y + 14, 'A reward box rattles with a possible cosmetic drop.', {
       fontSize: '11px', fontFamily: 'Arial',
       color: '#eef7ff', stroke: '#000', strokeThickness: 2,
-      wordWrap: { width: 390 }, align: 'center',
-    }).setOrigin(0.5).setDepth(8);
+      wordWrap: { width: 290 }, align: 'left',
+      lineSpacing: 3,
+    }).setOrigin(0, 0.5).setDepth(8);
 
-    const odds = this.add.text(cx, y + 42, oddsText, {
+    const odds = this.add.text(textLeft, y + 46, oddsText, {
       fontSize: '10px', fontFamily: 'Arial Black',
       color: '#b7d2ef', stroke: '#000', strokeThickness: 2,
-      wordWrap: { width: 400 }, align: 'center',
-    }).setOrigin(0.5).setDepth(8);
+      wordWrap: { width: 290 }, align: 'left',
+      lineSpacing: 4,
+    }).setOrigin(0, 0.5).setDepth(8);
 
-    const foot = this.add.text(cx, y + 58, duplicateText, {
+    const foot = this.add.text(textLeft, y + 76, duplicateText, {
       fontSize: '10px', fontFamily: 'Arial',
       color: '#9fc0db', stroke: '#000', strokeThickness: 2,
-      wordWrap: { width: 390 }, align: 'center',
-    }).setOrigin(0.5).setDepth(8);
+      wordWrap: { width: 290 }, align: 'left',
+      lineSpacing: 3,
+    }).setOrigin(0, 0.5).setDepth(8);
 
     this.time.delayedCall(700, () => {
       const revealStyle = reward ? style : {
@@ -428,11 +435,11 @@ class LevelCompleteScene extends Phaser.Scene {
     };
     g.clear();
     g.fillStyle(panelStyle.fill, 0.98);
-    g.fillRoundedRect(cx - 210, y - 42, 420, 92, 14);
+    g.fillRoundedRect(cx - 210, y - 60, 420, 124, 14);
     g.lineStyle(2.5, panelStyle.border, 1);
-    g.strokeRoundedRect(cx - 210, y - 42, 420, 92, 14);
+    g.strokeRoundedRect(cx - 210, y - 60, 420, 124, 14);
     g.lineStyle(revealed ? 5 : 3, panelStyle.glow, revealed ? 0.18 : 0.1);
-    g.strokeRoundedRect(cx - 206, y - 38, 412, 84, 12);
+    g.strokeRoundedRect(cx - 206, y - 56, 412, 116, 12);
 
     const boxX = cx - 165;
     const boxY = y - 6;
@@ -474,24 +481,29 @@ class LevelCompleteScene extends Phaser.Scene {
     const btnY   = this.buttonY;
     const save   = this.saveData;
     const nextId = this.levelId + 1;
-    const hasNext    = nextId <= LEVEL_DATA.length;
+    const hasNext      = nextId <= LEVEL_DATA.length;
     const nextUnlocked = hasNext && Progression.isUnlocked(nextId, save);
 
+    // Button W=190 → each side extends 95px from center.
+    // spread must exceed 95 to prevent background rects from overlapping.
+    // 3-button: spread 205 gives 15px gap. 2-button: spread 110 gives 30px gap.
+    const spread = nextUnlocked ? 205 : 110;
+
     // Retry (back to loadout for same level)
-    this._makeBtn(cx - (nextUnlocked ? 150 : 80), btnY, 'Retry', 0x3a2a1a, 0x6a4a1a, () => {
+    this._makeBtn(cx - spread, btnY, 'Retry', 0x3a2a1a, 0x6a4a1a, () => {
       GameState.selectedDog = null;
       this.scene.start('LoadoutScene', { levelId: this.levelId });
     });
 
-    // Level Select
-    this._makeBtn(cx + (nextUnlocked ? 0 : 80), btnY, 'Oyong Home', 0x1a2a3a, 0x2a4a6a, () => {
+    // Oyong Home — centred when 3 buttons, offset when 2
+    this._makeBtn(cx + (nextUnlocked ? 0 : spread), btnY, 'Oyong Home', 0x1a2a3a, 0x2a4a6a, () => {
       GameState.selectedDog = null;
       this.scene.start('OyongHomeScene');
     });
 
     // Next Level (only if unlocked)
     if (nextUnlocked) {
-      this._makeBtn(cx + 150, btnY, 'Next Level \u2192', 0x1a4a1a, 0x2a7a2a, () => {
+      this._makeBtn(cx + spread, btnY, 'Next Level \u2192', 0x1a4a1a, 0x2a7a2a, () => {
         GameState.selectedDog = null;
         this.scene.start('LoadoutScene', { levelId: nextId });
       });

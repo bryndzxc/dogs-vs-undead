@@ -6,7 +6,7 @@ const MISSION_DEFS = [
   {
     id: 'steady-paws',
     title: 'Steady Paws',
-    desc: 'Win Level 1 without losing a lane.',
+    desc: 'Clear all waves on Level 1 without triggering any emergency saves.',
     type: 'perfect_win',
     levelId: 1,
     target: 1,
@@ -15,7 +15,7 @@ const MISSION_DEFS = [
   {
     id: 'tank-trial',
     title: 'Tank Trial',
-    desc: 'Win a level after using Oyong Tank.',
+    desc: 'Include Oyong Tank in your loadout and survive all waves to win.',
     type: 'use_dog_win',
     dogType: 'guard_dog',
     target: 1,
@@ -24,7 +24,7 @@ const MISSION_DEFS = [
   {
     id: 'best-friends',
     title: 'Best Friends',
-    desc: 'Reach Bond Level 2.',
+    desc: 'Feed, pet, or rest Oyong until Bond Level 2 is reached.',
     type: 'bond_level',
     target: 2,
     reward: { decorId: 'heart_bowl' },
@@ -32,7 +32,7 @@ const MISSION_DEFS = [
   {
     id: 'biscuit-bundle',
     title: 'Biscuit Bundle',
-    desc: 'Earn 60 biscuits in total.',
+    desc: 'Earn 60 Biscuits total from battle rewards and home care.',
     type: 'earn_biscuits',
     target: 60,
     reward: { biscuits: 15 },
@@ -40,7 +40,7 @@ const MISSION_DEFS = [
   {
     id: 'golden-finish',
     title: 'Golden Finish',
-    desc: 'Complete any level with 3 stars.',
+    desc: 'Win any level without losing a dog or using any emergency saves.',
     type: 'three_star_win',
     target: 1,
     reward: { decorId: 'moon_frame', bonusTreats: 8 },
@@ -93,14 +93,15 @@ function getMissionProgressValue(mission, saveData) {
 }
 
 function getMissionProgressText(mission, progressValue) {
-  const target = Math.max(1, Math.floor(mission.target || 1));
+  const target  = Math.max(1, Math.floor(mission.target || 1));
   const current = Math.max(0, Math.min(target, Math.floor(progressValue || 0)));
 
-  if (mission.type === 'bond_level') {
-    return `Lv ${current}/${target}`;
+  switch (mission.type) {
+    case 'bond_level':    return `Lv ${current} / ${target}`;
+    case 'earn_biscuits': return `${current} / ${target} earned`;
+    case 'perfect_win':   return `${current} / ${target} clear`;
+    case 'three_star_win': return `${current} / ${target} clear`;
+    case 'use_dog_win':   return `${current} / ${target} wins`;
+    default:              return `${current} / ${target}`;
   }
-  if (mission.type === 'earn_biscuits') {
-    return `${current}/${target}`;
-  }
-  return `${current}/${target}`;
 }
